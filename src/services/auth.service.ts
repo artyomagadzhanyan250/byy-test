@@ -1,4 +1,21 @@
-import api from "../api/axios";
+import axios from "axios";
+
+const api = axios.create({
+    baseURL: import.meta.env.VITE_API_URL,
+    headers: {
+        "Content-Type": "application/json",
+    },
+});
+
+export interface LoginRequest {
+    username: string;
+    password: string;
+}
+
+export interface LoginResponse {
+    access: string;
+    refresh: string;
+}
 
 export interface RegisterRequest {
     username: string;
@@ -8,11 +25,16 @@ export interface RegisterRequest {
     last_name: string;
 }
 
-export interface ApiError {
-    [field: string]: string[] | string;
-}
-
 export const authService = {
+    login: async (data: LoginRequest): Promise<LoginResponse> => {
+        const response = await api.post<LoginResponse>(
+            "/token/",
+            data
+        );
+
+        return response.data;
+    },
+
     register: async (data: RegisterRequest) => {
         const response = await api.post("/register/", data);
 

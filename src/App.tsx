@@ -1,22 +1,44 @@
-import './App.css';
+import { Routes, Route, Navigate } from "react-router-dom";
 
-import { Routes, Route } from 'react-router-dom';
+import SignInForm from "./components/auth/SignInForm";
 
-// Pages
-import SignIn from './pages/SignIn';
-import SignUp from './pages/SignUp';
-import Dashboard from './pages/Dashboard';
+import SignUpForm from "./components/auth/SignUpForm";
+
+import ProtectedRoute from "./components/auth/ProtectedRoute";
+
+import Dashboard from "./pages/Dashboard";
 
 function App() {
   return (
-    <div className="App">
-      <Routes>
-        <Route path='/login' element={<SignIn />} />
-        <Route path='/register' element={<SignUp />} />
-        <Route path='/' element={<Dashboard />} />
-      </Routes>
-    </div>
-  )
+    <Routes>
+      <Route
+        path="/"
+        element={<Navigate to="/dashboard" replace />}
+      />
+
+      <Route
+        path="/login"
+        element={<SignInForm />}
+      />
+
+      <Route
+        path="/register"
+        element={<SignUpForm />}
+      />
+
+      <Route element={<ProtectedRoute />}>
+        <Route
+          path="/dashboard"
+          element={<Dashboard />}
+        />
+      </Route>
+
+      <Route
+        path="*"
+        element={<Navigate to="/dashboard" replace />}
+      />
+    </Routes>
+  );
 }
 
-export default App
+export default App;

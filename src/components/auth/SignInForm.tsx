@@ -1,4 +1,6 @@
-import React from "react";
+
+import React, { useState } from "react";
+
 import {
     Form,
     Input,
@@ -12,9 +14,20 @@ import {
     LockOutlined,
 } from "@ant-design/icons";
 
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+
+import axios from "axios";
+
+import { useAppDispatch } from "../../app/hooks";
+
+import { setCredentials } from "../../features/auth/authSlice";
+
+import { authService } from "../../services/auth.service";
+
+import { tokenStorage } from "../../utils/tokenStorage";
 
 import { useSignInValidation } from "../../hooks/useSignInValidation";
+
 import type { SignInFormValues } from "../../types/signIn.types";
 
 import "./SignInForm.scss";
@@ -22,17 +35,65 @@ import "./SignInForm.scss";
 const SignInForm: React.FC = () => {
     const [form] = Form.useForm<SignInFormValues>();
 
+    const navigate = useNavigate();
+
+    const dispatch = useAppDispatch();
+
+    const [loading, setLoading] = useState(false);
+
     const {
         usernameRules,
         passwordRules,
     } = useSignInValidation();
 
-    const handleSubmit = (values: SignInFormValues) => {
-        console.log("Sign in data:", values);
+    const handleSubmit = async (values: SignInFormValues) => {
+        setLoading(true);
 
-        message.success("Sign in successful!");
+        try {
+            const response = await authService.login({
+                username: values.username,
+                password: values.password,
+            });
 
-        form.resetFields();
+            // Save tokens
+            tokenStorage.setTokens(
+                response.access,
+                response.refresh
+            );
+
+            // Update Redux
+            dispatch(
+                setCredentials({
+                    access: response.access,
+                    refresh: response.refresh,
+                })
+            );
+
+            message.success("Sign in successful!");
+
+            form.resetFields();
+
+            navigate("/dashboard", { replace: true });
+
+        } catch (error: unknown) {
+            if (axios.isAxiosError(error)) {
+                const backendError = error.response?.data;
+
+                if (backendError?.detail) {
+                    message.error(backendError.detail);
+                } else {
+                    message.error(
+                        "Unable to sign in. Please try again."
+                    );
+                }
+            } else {
+                message.error(
+                    "Something went wrong. Please try again."
+                );
+            }
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -50,7 +111,6 @@ const SignInForm: React.FC = () => {
                     onFinish={handleSubmit}
                     autoComplete="off"
                 >
-                    {/* Username */}
                     <Form.Item
                         label="Username"
                         name="username"
@@ -59,11 +119,9 @@ const SignInForm: React.FC = () => {
                         <Input
                             prefix={<UserOutlined />}
                             placeholder="Enter username"
-                            maxLength={20}
                         />
                     </Form.Item>
 
-                    {/* Password */}
                     <Form.Item
                         label="Password"
                         name="password"
@@ -76,12 +134,13 @@ const SignInForm: React.FC = () => {
                         />
                     </Form.Item>
 
-                    {/* Submit */}
                     <Form.Item>
                         <Button
                             type="primary"
                             htmlType="submit"
                             block
+                            loading={loading}
+                            disabled={loading}
                             className="submit-btn"
                         >
                             Sign In
