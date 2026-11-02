@@ -1,4 +1,6 @@
-import React from "react";
+
+import React, { useState } from "react";
+
 import {
     Form,
     Input,
@@ -12,27 +14,75 @@ import {
     LockOutlined,
 } from "@ant-design/icons";
 
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { useSignInValidation } from "../../hooks/useSignInValidation";
 import type { SignInFormValues } from "../../types/signIn.types";
+
+import { authService } from "../../services/auth.service";
 
 import "./SignInForm.scss";
 
 const SignInForm: React.FC = () => {
     const [form] = Form.useForm<SignInFormValues>();
 
+    const navigate = useNavigate();
+
+    const [loading, setLoading] = useState(false);
+
     const {
         usernameRules,
         passwordRules,
     } = useSignInValidation();
 
-    const handleSubmit = (values: SignInFormValues) => {
-        console.log("Sign in data:", values);
+    const handleSubmit = async (values: SignInFormValues) => {
+        setLoading(true);
 
-        message.success("Sign in successful!");
+        try {
+            await authService.login({
+                username: values.username,
+                password: values.password,
+            });
 
-        form.resetFields();
+            message.success("Sign in successful!");
+
+            form.resetFields();
+
+            navigate("/dashboard", { replace: true });
+
+        } catch (error: unknown) {
+            if (axiosError(error)) {
+                const backendError = error.response?.data as {
+                    detail?: string;
+                    username?: string[];
+                    password?: string[];
+                } | undefined;
+
+                if (backendError?.detail) {
+                    message.error(backendError.detail);
+                } else if (
+                    backendError?.username ||
+                    backendError?.password
+                ) {
+                    form.setFields([
+                        {
+                            name: "username",
+                            errors: backendError.username ?? [],
+                        },
+                        {
+                            name: "password",
+                            errors: backendError.password ?? [],
+                        },
+                    ]);
+                } else {
+                    message.error("Unable to sign in. Please try again.");
+                }
+            } else {
+                message.error("Something went wrong. Please try again.");
+            }
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -50,7 +100,6 @@ const SignInForm: React.FC = () => {
                     onFinish={handleSubmit}
                     autoComplete="off"
                 >
-                    {/* Username */}
                     <Form.Item
                         label="Username"
                         name="username"
@@ -59,11 +108,9 @@ const SignInForm: React.FC = () => {
                         <Input
                             prefix={<UserOutlined />}
                             placeholder="Enter username"
-                            maxLength={20}
                         />
                     </Form.Item>
 
-                    {/* Password */}
                     <Form.Item
                         label="Password"
                         name="password"
@@ -76,12 +123,13 @@ const SignInForm: React.FC = () => {
                         />
                     </Form.Item>
 
-                    {/* Submit */}
                     <Form.Item>
                         <Button
                             type="primary"
                             htmlType="submit"
                             block
+                            loading={loading}
+                            disabled={loading}
                             className="submit-btn"
                         >
                             Sign In
@@ -96,6 +144,13 @@ const SignInForm: React.FC = () => {
             </Card>
         </div>
     );
+};
+
+// Axios error type guard
+import axios from "axios";
+
+const axiosError = (error: unknown): error is import("axios").AxiosError => {
+    return axios.isAxiosError(error);
 };
 
 export default SignInForm;

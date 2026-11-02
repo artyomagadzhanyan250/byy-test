@@ -1,6 +1,10 @@
+import ToDo from "../components/dashboard/ToDo";
+
 function Dashboard() {
     return (
-        <div>Dashboard</div>
+        <div>
+            <ToDo />
+        </div>
     )
 }
 
