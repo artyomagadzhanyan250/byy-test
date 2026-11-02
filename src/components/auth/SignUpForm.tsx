@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+
 import {
     Form,
     Input,
@@ -15,15 +16,24 @@ import {
     LockOutlined,
 } from "@ant-design/icons";
 
+import { useNavigate, Link } from "react-router-dom";
+
 import { useSignUpValidation } from "../../hooks/useSignUpValidation";
+
 import type { SignUpFormValues } from "../../types/signUp.types";
+
+import {
+    authService,
+} from "../../services/auth.service";
 
 import "./SignUpForm.scss";
 
-import { Link } from "react-router-dom";
-
 const SignUpForm: React.FC = () => {
     const [form] = Form.useForm<SignUpFormValues>();
+
+    const navigate = useNavigate();
+
+    const [loading, setLoading] = useState(false);
 
     const {
         usernameRules,
@@ -34,12 +44,99 @@ const SignUpForm: React.FC = () => {
         confirmPasswordRules,
     } = useSignUpValidation();
 
-    const handleSubmit = (values: SignUpFormValues) => {
-        console.log("Sign up data:", values);
+    const handleSubmit = async (values: SignUpFormValues) => {
+        setLoading(true);
 
-        message.success("Account created successfully!");
+        // Clear previous backend validation errors.
+        form.setFields([
+            {
+                name: "username",
+                errors: [],
+            },
+            {
+                name: "email",
+                errors: [],
+            },
+            {
+                name: "first_name",
+                errors: [],
+            },
+            {
+                name: "last_name",
+                errors: [],
+            },
+            {
+                name: "password",
+                errors: [],
+            },
+        ]);
 
-        form.resetFields();
+        try {
+            await authService.register({
+                username: values.username,
+                email: values.email,
+                password: values.password,
+                first_name: values.first_name,
+                last_name: values.last_name,
+            });
+
+            form.resetFields();
+
+            message.success("Account created successfully!");
+
+            navigate("/login", {
+                state: {
+                    registrationSuccess: true,
+                },
+            });
+
+        } catch (error: any) {
+            const responseData = error.response?.data;
+
+            if (responseData && typeof responseData === "object") {
+                const fieldErrors: {
+                    name: keyof SignUpFormValues;
+                    errors: string[];
+                }[] = [];
+
+                Object.entries(responseData).forEach(
+                    ([field, errors]) => {
+                        const errorMessages = Array.isArray(errors)
+                            ? errors.map(String)
+                            : [String(errors)];
+
+                        // Map backend errors to Ant Design fields.
+                        const knownFields = [
+                            "username",
+                            "email",
+                            "first_name",
+                            "last_name",
+                            "password",
+                            "confirm_password",
+                        ];
+
+                        if (knownFields.includes(field)) {
+                            fieldErrors.push({
+                                name: field as keyof SignUpFormValues,
+                                errors: errorMessages,
+                            });
+                        } else {
+                            message.error(errorMessages.join(" "));
+                        }
+                    }
+                );
+
+                if (fieldErrors.length > 0) {
+                    form.setFields(fieldErrors);
+                }
+            } else {
+                message.error(
+                    "Something went wrong. Please try again later."
+                );
+            }
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -69,7 +166,6 @@ const SignUpForm: React.FC = () => {
                         />
                     </Form.Item>
 
-                    {/* First Name and Last Name */}
                     <Row gutter={16}>
                         <Col xs={24} sm={12}>
                             <Form.Item
@@ -142,6 +238,8 @@ const SignUpForm: React.FC = () => {
                             type="primary"
                             htmlType="submit"
                             block
+                            loading={loading}
+                            disabled={loading}
                             className="submit-btn"
                         >
                             Sign Up
