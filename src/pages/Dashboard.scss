@@ -1,0 +1,15 @@
+.dashboard-header {
+    max-width: 800px;
+    margin: 30px auto 0;
+
+    .ant-card-body {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+    }
+
+    h3 {
+        margin: 0;
+    }
+}

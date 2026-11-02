@@ -1,13 +1,15 @@
 import React from "react";
+
 import { Navigate, Outlet } from "react-router-dom";
 
-import { tokenStorage } from "../../utils/tokenStorage";
+import { useAppSelector } from "../../app/hooks";
+
+import { selectIsAuthenticated } from "../../features/auth/authSlice";
 
 const ProtectedRoute: React.FC = () => {
-    const accessToken = tokenStorage.getAccessToken();
-    const refreshToken = tokenStorage.getRefreshToken();
+    const isAuthenticated = useAppSelector(selectIsAuthenticated);
 
-    if (!accessToken && !refreshToken) {
+    if (!isAuthenticated) {
         return <Navigate to="/login" replace />;
     }
 

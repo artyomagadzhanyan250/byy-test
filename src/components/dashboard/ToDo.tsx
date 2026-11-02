@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 
 import {
     Card,
@@ -9,105 +9,93 @@ import {
     message,
     Typography,
     Space,
+    Alert,
+    Button,
 } from "antd";
 
 import {
     CheckCircleOutlined,
     ClockCircleOutlined,
+    ReloadOutlined,
 } from "@ant-design/icons";
 
-import { todoService } from "../../services/todo.service";
-
-import type { Todo as TodoType } from "../../types/todo.types";
+import {
+    useGetTodosQuery,
+    useUpdateTodoMutation,
+} from "../../services/todosApi";
 
 import "./ToDo.scss";
 
 const { Title, Paragraph, Text } = Typography;
 
 const ToDo: React.FC = () => {
-    const [todos, setTodos] = useState<TodoType[]>([]);
-    const [loading, setLoading] = useState(true);
+    const {
+        data,
+        isLoading,
+        isError,
+        refetch,
+    } = useGetTodosQuery();
 
-    const [updatingIds, setUpdatingIds] = useState<number[]>([]);
+    const [
+        updateTodo,
+        { isLoading: isUpdating },
+    ] = useUpdateTodoMutation();
 
-    // FETCH TODOS
-    const fetchTodos = async () => {
-        setLoading(true);
+    const todos = data?.results ?? [];
 
-        try {
-            const response = await todoService.getTodos();
+    const completedCount = todos.filter(
+        (todo) => todo.completed
+    ).length;
 
-            setTodos(response.results);
-
-        } catch {
-            message.error("Unable to load your tasks.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchTodos();
-    }, []);
-
-    // TOGGLE TODO COMPLETION
     const handleToggle = async (
-        todo: TodoType,
-        checked: boolean
+        id: number,
+        completed: boolean
     ) => {
-        if (updatingIds.includes(todo.id)) return;
-
-        const previousStatus = todo.completed;
-
-        // Optimistic update
-        setTodos((prev) =>
-            prev.map((item) =>
-                item.id === todo.id
-                    ? { ...item, completed: checked }
-                    : item
-            )
-        );
-
-        setUpdatingIds((prev) => [...prev, todo.id]);
-
         try {
-            const updatedTodo = await todoService.updateTodo(
-                todo.id,
-                { completed: checked }
-            );
-
-            setTodos((prev) =>
-                prev.map((item) =>
-                    item.id === todo.id
-                        ? updatedTodo
-                        : item
-                )
-            );
+            await updateTodo({
+                id,
+                data: { completed },
+            }).unwrap();
 
             message.success(
-                checked
+                completed
                     ? "Task completed!"
                     : "Task marked as incomplete."
             );
 
         } catch {
-            // Roll back if backend update fails
-            setTodos((prev) =>
-                prev.map((item) =>
-                    item.id === todo.id
-                        ? { ...item, completed: previousStatus }
-                        : item
-                )
-            );
-
             message.error("Unable to update task.");
-
-        } finally {
-            setUpdatingIds((prev) =>
-                prev.filter((id) => id !== todo.id)
-            );
         }
     };
+
+    if (isLoading) {
+        return (
+            <div className="todo-loading">
+                <Spin size="large" />
+            </div>
+        );
+    }
+
+    if (isError) {
+        return (
+            <div className="todo-wrapper">
+                <Alert
+                    type="error"
+                    showIcon
+                    message="Unable to load tasks"
+                    description="Something went wrong while fetching your todos."
+                    action={
+                        <Button
+                            icon={<ReloadOutlined />}
+                            onClick={() => refetch()}
+                        >
+                            Retry
+                        </Button>
+                    }
+                />
+            </div>
+        );
+    }
 
     return (
         <div className="todo-wrapper">
@@ -122,20 +110,12 @@ const ToDo: React.FC = () => {
                     </div>
 
                     <Text type="secondary">
-                        {todos.filter((todo) => todo.completed).length}
-                        {" / "}
-                        {todos.length} completed
+                        {completedCount} / {todos.length} completed
                     </Text>
                 </div>
 
-                {loading ? (
-                    <div className="todo-loading">
-                        <Spin size="large" />
-                    </div>
-                ) : todos.length === 0 ? (
-                    <Empty
-                        description="You don't have any tasks yet."
-                    />
+                {todos.length === 0 ? (
+                    <Empty description="You don't have any tasks yet." />
                 ) : (
                     <Space
                         direction="vertical"
@@ -177,9 +157,9 @@ const ToDo: React.FC = () => {
 
                                 <Switch
                                     checked={todo.completed}
-                                    loading={updatingIds.includes(todo.id)}
+                                    loading={isUpdating}
                                     onChange={(checked) =>
-                                        handleToggle(todo, checked)
+                                        handleToggle(todo.id, checked)
                                     }
                                 />
                             </div>

@@ -16,10 +16,19 @@ import {
 
 import { Link, useNavigate } from "react-router-dom";
 
-import { useSignInValidation } from "../../hooks/useSignInValidation";
-import type { SignInFormValues } from "../../types/signIn.types";
+import axios from "axios";
+
+import { useAppDispatch } from "../../app/hooks";
+
+import { setCredentials } from "../../features/auth/authSlice";
 
 import { authService } from "../../services/auth.service";
+
+import { tokenStorage } from "../../utils/tokenStorage";
+
+import { useSignInValidation } from "../../hooks/useSignInValidation";
+
+import type { SignInFormValues } from "../../types/signIn.types";
 
 import "./SignInForm.scss";
 
@@ -27,6 +36,8 @@ const SignInForm: React.FC = () => {
     const [form] = Form.useForm<SignInFormValues>();
 
     const navigate = useNavigate();
+
+    const dispatch = useAppDispatch();
 
     const [loading, setLoading] = useState(false);
 
@@ -39,10 +50,24 @@ const SignInForm: React.FC = () => {
         setLoading(true);
 
         try {
-            await authService.login({
+            const response = await authService.login({
                 username: values.username,
                 password: values.password,
             });
+
+            // Save tokens
+            tokenStorage.setTokens(
+                response.access,
+                response.refresh
+            );
+
+            // Update Redux
+            dispatch(
+                setCredentials({
+                    access: response.access,
+                    refresh: response.refresh,
+                })
+            );
 
             message.success("Sign in successful!");
 
@@ -51,34 +76,20 @@ const SignInForm: React.FC = () => {
             navigate("/dashboard", { replace: true });
 
         } catch (error: unknown) {
-            if (axiosError(error)) {
-                const backendError = error.response?.data as {
-                    detail?: string;
-                    username?: string[];
-                    password?: string[];
-                } | undefined;
+            if (axios.isAxiosError(error)) {
+                const backendError = error.response?.data;
 
                 if (backendError?.detail) {
                     message.error(backendError.detail);
-                } else if (
-                    backendError?.username ||
-                    backendError?.password
-                ) {
-                    form.setFields([
-                        {
-                            name: "username",
-                            errors: backendError.username ?? [],
-                        },
-                        {
-                            name: "password",
-                            errors: backendError.password ?? [],
-                        },
-                    ]);
                 } else {
-                    message.error("Unable to sign in. Please try again.");
+                    message.error(
+                        "Unable to sign in. Please try again."
+                    );
                 }
             } else {
-                message.error("Something went wrong. Please try again.");
+                message.error(
+                    "Something went wrong. Please try again."
+                );
             }
         } finally {
             setLoading(false);
@@ -144,13 +155,6 @@ const SignInForm: React.FC = () => {
             </Card>
         </div>
     );
-};
-
-// Axios error type guard
-import axios from "axios";
-
-const axiosError = (error: unknown): error is import("axios").AxiosError => {
-    return axios.isAxiosError(error);
 };
 
 export default SignInForm;

@@ -1,14 +1,20 @@
-import api, { refreshClient } from "../api/axios";
-import { tokenStorage } from "../utils/tokenStorage";
+import axios from "axios";
+
+const api = axios.create({
+    baseURL: import.meta.env.VITE_API_URL,
+    headers: {
+        "Content-Type": "application/json",
+    },
+});
 
 export interface LoginRequest {
     username: string;
     password: string;
 }
 
-export interface TokenResponse {
+export interface LoginResponse {
     access: string;
-    refresh?: string;
+    refresh: string;
 }
 
 export interface RegisterRequest {
@@ -20,53 +26,18 @@ export interface RegisterRequest {
 }
 
 export const authService = {
-    // SIGN IN
-    login: async (data: LoginRequest): Promise<TokenResponse> => {
-        const response = await api.post<TokenResponse>(
+    login: async (data: LoginRequest): Promise<LoginResponse> => {
+        const response = await api.post<LoginResponse>(
             "/token/",
             data
         );
 
-        const { access, refresh } = response.data;
-
-        tokenStorage.setTokens(access, refresh!);
-
         return response.data;
     },
 
-    // REFRESH ACCESS TOKEN
-    refreshToken: async (): Promise<string> => {
-        const refresh = tokenStorage.getRefreshToken();
-
-        if (!refresh) {
-            throw new Error("Refresh token not found");
-        }
-
-        const response = await refreshClient.post<TokenResponse>(
-            "/token/refresh/",
-            { refresh }
-        );
-
-        const { access, refresh: newRefresh } = response.data;
-
-        tokenStorage.setAccessToken(access);
-
-        if (newRefresh) {
-            tokenStorage.setRefreshToken(newRefresh);
-        }
-
-        return access;
-    },
-
-    // REGISTER
     register: async (data: RegisterRequest) => {
         const response = await api.post("/register/", data);
 
         return response.data;
-    },
-
-    // LOG OUT
-    logout: () => {
-        tokenStorage.clearTokens();
     },
 };
