@@ -2,12 +2,11 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    min-height: 100vh;
     padding: 30px 16px;
-    background: #f0f2f5;
 
     .signup-card {
         width: 100%;
+        height: fit-content;
         max-width: 550px;
         border-radius: 12px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
